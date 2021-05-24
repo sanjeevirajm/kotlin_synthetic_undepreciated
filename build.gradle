@@ -1,0 +1,162 @@
+task generateSynthetics {
+    def debugViewBindingDirectory = new File(projectDir.path+"/build/generated/data_binding_base_class_source_out/debug/out/com/zoho/people/databinding")
+    def releaseViewBindingDirectory = new File(projectDir.path+"/build/generated/data_binding_base_class_source_out/release/out/com/zoho/people/databinding")
+    def viewBindingDirectory
+    if (debugViewBindingDirectory.exists()) {
+        viewBindingDirectory = debugViewBindingDirectory
+    } else {
+        viewBindingDirectory = releaseViewBindingDirectory
+    }
+
+//    def syntheticDirectory = new File(projectDir.path+"/build/generated/kotlinx/android/synthetic/main/")
+    def syntheticDirectory = new File(projectDir.path+"/src/main/java/kotlinx/android/synthetic/main/")
+    if (!syntheticDirectory.exists()) {
+        syntheticDirectory.mkdirs()
+    }
+    println("syntheticDirectory: "+syntheticDirectory)
+
+    def layoutDirectory = new File(projectDir.path+"/src/main/res/layout/")
+
+    viewBindingDirectory.eachFile { file ->
+        def modifiedName = ""
+
+        println("file.name: "+file.name)
+        file.name.getChars().each { eachChar ->
+            if (eachChar.isUpperCase()) {
+                if (modifiedName.isEmpty()) {
+                    modifiedName = eachChar.toLowerCase().toString()
+                } else {
+                    modifiedName += "_" + eachChar.toLowerCase()
+                }
+            } else {
+                modifiedName += eachChar.toString()
+            }
+        }
+        modifiedName = modifiedName.replace(".java", "")
+        modifiedName = modifiedName.replace("_binding", "")
+        def layoutDir = new File(syntheticDirectory.path + "/" + modifiedName + "/")
+        if (!layoutDir.exists()) {
+            layoutDir.mkdir()
+        }
+
+        def layoutSubDir = new File(syntheticDirectory.path + "/" + modifiedName + "/view/")
+        if (!layoutSubDir.exists()) {
+            layoutSubDir.mkdir()
+        }
+
+        def mainFile = new File(layoutDir.path + "/" + modifiedName + ".kt")
+        if (!mainFile.exists()) {
+            mainFile.createNewFile()
+        }
+
+        def viewExtensionFile = new File(layoutSubDir.path + "/" + modifiedName + ".kt")
+        if (!viewExtensionFile.exists()) {
+            viewExtensionFile.createNewFile()
+        }
+
+        println("modifiedName: "+modifiedName)
+
+        def fullText = new StringBuilder()
+        fullText.append("package kotlinx.android.synthetic.main.")
+        fullText.append(modifiedName)
+        fullText.append("\n\n")
+
+        def fullTextForViewExtension = new StringBuilder()
+        fullTextForViewExtension.append("package kotlinx.android.synthetic.main.")
+        fullTextForViewExtension.append(modifiedName)
+        fullTextForViewExtension.append(".view")
+        fullTextForViewExtension.append("\n\n")
+
+        def dataTypes = new ArrayList<String>()
+        def names = new ArrayList<String>()
+
+        file.readLines().forEach { lineWithSpaces ->
+            def line = lineWithSpaces.trim()
+            if (line.startsWith("import")) {
+                fullText.append(line)
+                fullText.append("\n")
+                fullTextForViewExtension.append(line)
+                fullTextForViewExtension.append("\n")
+            } else if (line.startsWith("id = R.id.")) {
+                def id = line.replace("id = ", "").replace(";", "")
+                def name = id.replace("R.id.", "")
+                names.add(name)
+            } else if (line.endsWith(" = ViewBindings.findChildViewById(rootView, id);")) {
+                def typeAndName = line.replace(" = ViewBindings.findChildViewById(rootView, id);", "")
+                def type = typeAndName.substring(0, typeAndName.indexOf(" "))
+                dataTypes.add(type)
+            }
+        }
+
+        def layoutFile = new File(layoutDirectory.path, modifiedName + ".xml")
+        def rootNode = new XmlParser().parse(layoutFile)
+        def rootViewIdEntry = rootNode.attributes().find {
+            it.key.toString() == "{http://schemas.android.com/apk/res/android}id"
+        }
+
+        def rootViewId = null
+        if (rootViewIdEntry != null) {
+            rootViewId = rootViewIdEntry.value.toString()
+        }
+
+        if (rootViewId != null && !rootViewId.startsWith("@android:id")) { // Not going to support views with Android package ids
+            def rootViewIdModified = rootViewId.replace("@+id/", "")
+            rootViewIdModified = rootViewIdModified.replace("@id/","")
+            dataTypes.add(rootNode.name())
+            names.add(rootViewIdModified)
+        }
+
+        fullText.append("import androidx.activity.ComponentActivity\n")
+        fullText.append("import androidx.fragment.app.Fragment\n")
+        fullText.append("import android.app.Dialog\n")
+        fullText.append("import androidx.recyclerview.widget.RecyclerView.ViewHolder\n\n")
+
+        def staticTemplate = """
+            val ExtensionClass.idName: ReturnType
+            get() {
+                return methodName.findViewById<ReturnType>(R.id.idName) as ReturnType
+            }
+        """.stripIndent()
+
+        names.eachWithIndex { String entry, int i ->
+            def template = staticTemplate
+            template = template.replace("idName", names.get(i))
+            template = template.replaceAll("ReturnType", dataTypes.get(i))
+
+            def activityMethod = template
+            activityMethod = activityMethod.replace("ExtensionClass", "ComponentActivity")
+            activityMethod = activityMethod.replace("methodName.", "")
+
+            def fragmentMethod = template
+            fragmentMethod = fragmentMethod.replace("ExtensionClass", "Fragment")
+            fragmentMethod = fragmentMethod.replace("methodName", "requireView()")
+
+            def dialogMethod = template
+            dialogMethod = dialogMethod.replace("ExtensionClass", "Dialog")
+            dialogMethod = dialogMethod.replace("methodName.", "")
+
+            def viewHolderMethod = template
+            viewHolderMethod = viewHolderMethod.replace("ExtensionClass", "ViewHolder")
+            viewHolderMethod = viewHolderMethod.replace("methodName", "itemView")
+
+            def viewMethod = template
+            viewMethod = viewMethod.replace("ExtensionClass", "View")
+            viewMethod = viewMethod.replace("methodName.", "")
+
+            fullText.append(activityMethod)
+            fullText.append(fragmentMethod)
+            fullText.append(dialogMethod)
+            fullText.append(viewHolderMethod)
+            fullText.append("\n")
+
+            fullTextForViewExtension.append(viewMethod)
+            fullTextForViewExtension.append("\n")
+        }
+
+        mainFile.write(fullText.toString())
+        viewExtensionFile.write(fullTextForViewExtension.toString())
+    }
+    println("viewBindingDirectory: "+viewBindingDirectory)
+}
+
+build.dependsOn generateSynthetics
