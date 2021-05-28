@@ -8,7 +8,7 @@ Without "kotlin android extensions", kotlin synthetics references will throw com
 
 The best solution is **Migrate to ViewBinding**.
 
-But if the project has huge number of synthetic references and you want to postpone migration but want to use latest kotlin version, use this gradle task.
+But if the project has huge number of synthetic references and you want to postpone migration and want to use latest kotlin version, use this gradle task.
 It will generate synthetic like classes.
 
 Note: 
