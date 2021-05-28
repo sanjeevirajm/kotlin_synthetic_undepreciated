@@ -1,7 +1,7 @@
 # kotlin_synthetic_undepreciated
 
 https://android-developers.googleblog.com/2020/11/the-future-of-kotlin-android-extensions.html
-Kotlin android extensions is no longer supported which generates Kotlin snthteic code. Depreceated they meant is it won't just show warning, it will show error when you try to use "Kotlin android extensions" plugin in kotlin version 1.4.20 and above. 
+"Kotlin android extensions" which generates Kotlin snythteic code is depreceated. Depreceated means, it will show error when you try to use "Kotlin android extensions" plugin in kotlin version 1.4.20 and above. 
 Without "kotlin android extensions", kotlin synthetics references will throw compilation error.
 The best solution is **Migrate to ViewBinding**
 But if the project has huge number of synthetic references and you want to postpone migration but want to use latest kotlin version, use this gradle task.
