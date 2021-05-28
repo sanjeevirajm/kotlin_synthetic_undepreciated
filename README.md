@@ -12,7 +12,7 @@ But if the project has huge number of synthetic references and you want to postp
 It will generate synthetic like classes.
 
 Note: 
-* Views are non nullable. That means, it will crash when there is no view with matching id (Original kotlin synthetic won't crash if you use it in null safe)
+* Views are non nullable. That means, it will crash when there is no view with matching id (Original kotlin synthetic won't crash if you use it in null safe way)
 * It requires ViewBinding to be enabled. Since the script depends on the ViewBinding generated classes.
-* Generated files are placed inside src/main folder. Push these files to repository.
+* Generated files are placed inside src/main folder. You need to push these files to repository.
 * You need to run the task manually
