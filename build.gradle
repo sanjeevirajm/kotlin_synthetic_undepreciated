@@ -1,14 +1,10 @@
 task generateSynthetics {
-    def debugViewBindingDirectory = new File(projectDir.path+"/build/generated/data_binding_base_class_source_out/debug/out/com/zoho/people/databinding")
-    def releaseViewBindingDirectory = new File(projectDir.path+"/build/generated/data_binding_base_class_source_out/release/out/com/zoho/people/databinding")
-    def viewBindingDirectory
-    if (debugViewBindingDirectory.exists()) {
-        viewBindingDirectory = debugViewBindingDirectory
-    } else {
-        viewBindingDirectory = releaseViewBindingDirectory
+    def viewBindingDirectory = new File(projectDir.path+"/build/generated/data_binding_base_class_source_out/debug/out/com/zoho/people/databinding")
+
+    if (!viewBindingDirectory.exists()) {
+        return ""
     }
 
-//    def syntheticDirectory = new File(projectDir.path+"/build/generated/kotlinx/android/synthetic/main/")
     def syntheticDirectory = new File(projectDir.path+"/src/main/java/kotlinx/android/synthetic/main/")
     if (!syntheticDirectory.exists()) {
         syntheticDirectory.mkdirs()
@@ -109,12 +105,14 @@ task generateSynthetics {
         fullText.append("import androidx.activity.ComponentActivity\n")
         fullText.append("import androidx.fragment.app.Fragment\n")
         fullText.append("import android.app.Dialog\n")
-        fullText.append("import androidx.recyclerview.widget.RecyclerView.ViewHolder\n\n")
+        fullText.append("import androidx.recyclerview.widget.RecyclerView.ViewHolder\n")
+        fullText.append("import kotlinx.android.synthetic.main.SyntheticHelper.findViewByIdInCacheInActivity\n")
+        fullText.append("import kotlinx.android.synthetic.main.SyntheticHelper.findViewByIdInCacheInFragment\n\n")
 
         def staticTemplate = """
-            val ExtensionClass.idName: ReturnType
+            inline val ExtensionClass.idName: ReturnType
             get() {
-                return methodName.findViewById<ReturnType>(R.id.idName) as ReturnType
+                return findViewById<ReturnType>(R.id.idName) as ReturnType
             }
         """.stripIndent()
 
@@ -125,23 +123,21 @@ task generateSynthetics {
 
             def activityMethod = template
             activityMethod = activityMethod.replace("ExtensionClass", "ComponentActivity")
-            activityMethod = activityMethod.replace("methodName.", "")
+            activityMethod = activityMethod.replace("findViewById", "findViewByIdInCacheInActivity")
 
             def fragmentMethod = template
             fragmentMethod = fragmentMethod.replace("ExtensionClass", "Fragment")
-            fragmentMethod = fragmentMethod.replace("methodName", "requireView()")
+            fragmentMethod = fragmentMethod.replace("findViewById", "findViewByIdInCacheInFragment")
 
             def dialogMethod = template
             dialogMethod = dialogMethod.replace("ExtensionClass", "Dialog")
-            dialogMethod = dialogMethod.replace("methodName.", "")
 
             def viewHolderMethod = template
             viewHolderMethod = viewHolderMethod.replace("ExtensionClass", "ViewHolder")
-            viewHolderMethod = viewHolderMethod.replace("methodName", "itemView")
+            viewHolderMethod = viewHolderMethod.replace("findViewById", "itemView.findViewById")
 
             def viewMethod = template
             viewMethod = viewMethod.replace("ExtensionClass", "View")
-            viewMethod = viewMethod.replace("methodName.", "")
 
             fullText.append(activityMethod)
             fullText.append(fragmentMethod)
@@ -158,5 +154,3 @@ task generateSynthetics {
     }
     println("viewBindingDirectory: "+viewBindingDirectory)
 }
-
-build.dependsOn generateSynthetics
